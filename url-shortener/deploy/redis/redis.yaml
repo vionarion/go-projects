@@ -1,7 +1,14 @@
 # Single Redis instance for url-shortener with persistent storage (AOF on a PVC).
 # Without a volume a Redis restart loses every link (measured: 100% of redirects -> 404).
-# Create the password first:
+#
+# Password: Secret "redis" with keys redis-password and (optional) redis-password-previous.
+# With Vault it is written by Vault Secrets Operator (see ../vault); without Vault create it by hand:
 #   kubectl create secret generic redis --from-literal=redis-password=$(openssl rand -hex 16)
+#
+# Rotation without downtime: Redis is NOT restarted when the password changes. The "acl" sidecar
+# watches the mounted Secret and lets both the current and the previous password in
+# (ACL SETUSER default >current >previous), so app pods with either password keep working
+# while the Deployment rolls. Measured: restart-on-change gave ~15 s of 503s, this gives none.
 apiVersion: v1
 kind: Service
 metadata:
@@ -32,17 +39,14 @@ spec:
       containers:
         - name: redis
           image: redis:8-alpine
-          args: ["sh", "-c", "exec redis-server --requirepass \"$REDIS_PASSWORD\" --appendonly yes --appendfsync everysec --dir /data"]
-          env:
-            - name: REDIS_PASSWORD
-              valueFrom: {secretKeyRef: {name: redis, key: redis-password}}
+          args: ["sh", "-c", "exec redis-server --requirepass \"$(cat /secret/redis-password)\" --appendonly yes --appendfsync everysec --dir /data"]
           ports:
             - containerPort: 6379
           readinessProbe:
             exec:
-              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+              command: ["sh", "-c", "REDISCLI_AUTH=\"$(cat /secret/redis-password)\" redis-cli ping | grep -q PONG"]
             periodSeconds: 5
-          securityContext:
+          securityContext: &sc
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: {drop: ["ALL"]}
@@ -51,6 +55,38 @@ spec:
             limits: {cpu: "1", memory: 256Mi}
           volumeMounts:
             - {name: data, mountPath: /data}
+            - {name: secret, mountPath: /secret, readOnly: true}
+        - name: acl
+          image: redis:8-alpine
+          command:
+            - sh
+            - -c
+            - |
+              # Secret volumes are refreshed by kubelet (within ~1 min); apply changes to the live server.
+              applied=""
+              while true; do
+                cur=$(cat /secret/redis-password); prev=$(cat /secret/redis-password-previous 2>/dev/null)
+                if [ "$cur$prev" != "$applied" ]; then
+                  rule=">$cur"; [ -n "$prev" ] && rule="$rule >$prev"
+                  for p in "$cur" "$prev"; do
+                    [ -n "$p" ] || continue
+                    if REDISCLI_AUTH="$p" redis-cli ACL SETUSER default on resetpass $rule '~*' '&*' +@all 2>/dev/null | grep -q OK; then
+                      applied="$cur$prev"; echo "$(date +%T) passwords applied (previous: $([ -n "$prev" ] && echo yes || echo no))"; break
+                    fi
+                  done
+                fi
+                sleep 5
+              done
+          securityContext: *sc
+          resources:
+            requests: {cpu: 5m, memory: 8Mi}
+            limits: {cpu: 100m, memory: 32Mi}
+          volumeMounts:
+            - {name: secret, mountPath: /secret, readOnly: true}
+      volumes:
+        - name: secret
+          secret:
+            secretName: redis
   volumeClaimTemplates:
     - metadata:
         name: data

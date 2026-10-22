@@ -72,6 +72,14 @@ Redis itself is external to the chart; `deploy/redis/redis.yaml` is a single-ins
 with AOF on a persistent volume. See `deploy/helm/url-shortener/values.yaml` for the rest of
 the settings (ingress, autoscaling, spread across nodes, ServiceMonitor).
 
+## Secrets: Vault
+
+The Redis password lives in HashiCorp Vault (HA, Raft, TLS) on the same cluster and is synced
+into the `redis` Secret by Vault Secrets Operator using Kubernetes auth and a read-only policy.
+Rotation does not restart Redis and was measured at 0 errors of 180k requests under load;
+the first naive version gave ~12k `503`s. Setup, design choices and the failover test:
+[`deploy/vault`](deploy/vault/README.md).
+
 ## Load test
 
 Measured on a 3-node k3s v1.36 cluster (1× 4 vCPU/8 GB, 2× 2 vCPU/8 GB VMs), chart installed with
