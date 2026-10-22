@@ -70,6 +70,28 @@ helm install url-shortener deploy/helm/url-shortener \
 Redis itself is external to the chart. See `deploy/helm/url-shortener/values.yaml` for the rest of
 the settings (ingress, autoscaling, ServiceMonitor).
 
+## Load test
+
+Measured on a 3-node k3s v1.36 cluster (1× 4 vCPU/8 GB, 2× 2 vCPU/8 GB VMs), chart installed with
+default values, a single Redis 8 pod with AOF, [hey](https://github.com/rakyll/hey) run from the
+control-plane node against the ClusterIP service, 100 connections (50 for `POST`).
+
+| Scenario | Pods | CPU limit | Requests/s | p50 | p90 | p99 | Errors |
+|---|---|---|---|---|---|---|---|
+| `GET /:code` (302), 120 s, HPA scaling 2→6 | 2→6 | 200m | 6 538 | 2.5 ms | 85 ms | 91 ms | 0 |
+| `POST /api/v1/shorten`, 60 s | 6 | 200m | 9 240 | 1.0 ms | 2.8 ms | 85 ms | 0 |
+| `GET /:code` (302), 60 s | 6 | 200m | 17 630 | 0.9 ms | 2.9 ms | 87 ms | 0 |
+| `GET /:code` (302), 60 s | 6 | 1 | 38 138 | 2.1 ms | 5.2 ms | 9.4 ms | 0 |
+
+Takeaways:
+
+- The HPA scaled the deployment from 2 to the maximum of 6 replicas within the first minute.
+- With a 200m CPU limit the latency is bimodal: most requests take 1–3 ms, but ~10% wait ~85–90 ms.
+  That is CFS throttling — a pod uses its 20 ms of CPU per 100 ms period and then waits for the next
+  period. Raising the limit to 1 CPU doubled throughput and cut p99 from 87 ms to 9 ms, so the chart
+  default is now `limits.cpu: 1`.
+- 555k links took 73 MB of Redis memory (~130 bytes per link); each app pod stayed under 12 MiB.
+
 ## Release
 
 Pushing a tag `url-shortener/vX.Y.Z` builds and pushes a multi-arch (amd64/arm64) image to
