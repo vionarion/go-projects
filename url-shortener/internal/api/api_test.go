@@ -177,4 +177,11 @@ func TestHealth(t *testing.T) {
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("health without redis: status %d, want 503", resp.StatusCode)
 	}
+	resp, err = app.Test(httptest.NewRequest(http.MethodGet, "/livez", nil), -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("livez without redis: status %d, want 200", resp.StatusCode)
+	}
 }

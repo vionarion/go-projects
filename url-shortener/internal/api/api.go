@@ -47,6 +47,7 @@ func New(cfg Config, st store.Store) *fiber.App {
 	app := fiber.New(fcfg)
 	app.Use(recover.New(), logger.New(), a.metrics.Middleware)
 	app.Get("/health", a.health)
+	app.Get("/livez", a.livez)
 	app.Get("/metrics", metrics.Handler(reg))
 	app.Post("/api/v1/shorten", a.shorten)
 	app.Get("/:code", a.resolve)
@@ -73,6 +74,12 @@ const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 func errJSON(c *fiber.Ctx, status int, msg string) error {
 	return c.Status(status).JSON(fiber.Map{"error": msg})
+}
+
+// livez only says the process is alive. It must not depend on Redis: a liveness probe on
+// /health restarted every pod during a Redis outage.
+func (a *App) livez(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{"status": "alive"})
 }
 
 func (a *App) health(c *fiber.Ctx) error {

@@ -1,0 +1,7 @@
+# Vault Secrets Operator: syncs Vault secrets into Kubernetes Secrets and restarts workloads on change.
+# helm install vso hashicorp/vault-secrets-operator --version 1.6.2 -n vault-secrets-operator --create-namespace -f values-vso.yaml
+controller:
+  manager:
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 )
 
 type Person struct {
@@ -67,6 +68,14 @@ func main() {
 	if addr == "" {
 		addr = "localhost:8080"
 	}
-	log.Printf("listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, newMux(&server{})))
+	log.Printf("listening on %s", addr) // #nosec G706 -- addr comes from the operator's own environment
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           newMux(&server{}),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }

@@ -26,7 +26,8 @@ func round(r *rand.Rand, n int) (byte, []string) {
 }
 
 func main() {
-	letter, cats := round(rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())), 4)
+	// A party game does not need cryptographic randomness.
+	letter, cats := round(rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())), 4) // #nosec G404
 	fmt.Printf("Letter: %c\n", letter)
 	for i, c := range cats {
 		fmt.Printf("%d. %s\n", i+1, c)
