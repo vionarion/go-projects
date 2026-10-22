@@ -41,8 +41,10 @@ func main() {
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	// Do not exit if Redis is down: the client reconnects on its own and /health keeps the
+	// instance out of the load balancer until Redis is back (exiting here caused CrashLoopBackOff).
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("redis: %v", err)
+		log.Printf("redis not reachable yet: %v", err)
 	}
 
 	app := api.New(api.Config{

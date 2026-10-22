@@ -28,6 +28,27 @@ securityContext:
   capabilities:
     drop: ["ALL"]
 
+# Rolling updates: the pod keeps serving for preStopSleepSeconds after it is removed from the
+# Service, so in-flight connections are not refused (measured: 22 errors -> 0, see README).
+preStopSleepSeconds: 5
+terminationGracePeriodSeconds: 30
+
+# Spread replicas across nodes so losing one node takes out as few of them as possible.
+# ScheduleAnyway was not enough: the scheduler put 3+3+0 pods on 3 nodes. nodeTaintsPolicy: Honor
+# leaves NotReady (tainted) nodes out of the skew count, so a dead node does not block scheduling.
+# matchLabelKeys: count only pods of the same ReplicaSet, otherwise the old pods of a rolling
+# update skew the placement of the new ones (got 2+1+3).
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    nodeTaintsPolicy: Honor
+    matchLabelKeys: ["pod-template-hash"]
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: '{{ include "url-shortener.name" . }}'
+        app.kubernetes.io/instance: '{{ .Release.Name }}'
+
 resources:
   requests:
     cpu: 20m
