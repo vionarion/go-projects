@@ -17,6 +17,7 @@ jobs:
       contents: read
       packages: write
       security-events: write
+      id-token: write   # keyless signing with the GitHub OIDC token
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +50,22 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/url-shortener@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Sign image and attach SBOM attestation (keyless, Sigstore)
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/url-shortener@${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "$IMAGE"
+          cosign attest --yes --type spdxjson --predicate sbom.spdx.json "$IMAGE"
 
       - name: Trivy scan (SARIF)
         uses: aquasecurity/trivy-action@0.28.0

@@ -2,7 +2,9 @@
 
 Go projects: from a standard-library HTTP API to a containerized service with Redis.
 Every project has tests; CI runs `gofmt`, `go vet`, tests with the race detector,
-a Docker image build and a secret scan (gitleaks) on every push.
+security checks (govulncheck, gosec, Trivy for the image and the Helm chart, gitleaks)
+and a Docker image build on every push. url-shortener releases are signed with cosign
+and ship an SBOM; a Kyverno policy admits only signed images to the cluster.
 
 | Project | What it is |
 |---|---|
