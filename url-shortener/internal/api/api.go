@@ -14,7 +14,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/vionarion/go-projects/url-shortener/internal/metrics"
 	"github.com/vionarion/go-projects/url-shortener/internal/store"
 )
 
@@ -30,19 +32,22 @@ type Config struct {
 }
 
 type App struct {
-	cfg   Config
-	store store.Store
+	cfg     Config
+	store   store.Store
+	metrics *metrics.Metrics
 }
 
 func New(cfg Config, st store.Store) *fiber.App {
-	a := &App{cfg: cfg, store: st}
+	reg := prometheus.NewRegistry()
+	a := &App{cfg: cfg, store: st, metrics: metrics.New(reg)}
 	fcfg := fiber.Config{AppName: "url-shortener"}
 	if cfg.TrustProxy {
 		fcfg.ProxyHeader = fiber.HeaderXForwardedFor
 	}
 	app := fiber.New(fcfg)
-	app.Use(recover.New(), logger.New())
+	app.Use(recover.New(), logger.New(), a.metrics.Middleware)
 	app.Get("/health", a.health)
+	app.Get("/metrics", metrics.Handler(reg))
 	app.Post("/api/v1/shorten", a.shorten)
 	app.Get("/:code", a.resolve)
 	return app
@@ -85,6 +90,7 @@ func (a *App) shorten(c *fiber.Ctx) error {
 		return errJSON(c, fiber.StatusServiceUnavailable, "storage unavailable")
 	}
 	if left < 0 {
+		a.metrics.RateLimited.Inc()
 		c.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(reset.Seconds())))
 		return errJSON(c, fiber.StatusTooManyRequests, "rate limit exceeded")
 	}
@@ -132,6 +138,7 @@ func (a *App) shorten(c *fiber.Ctx) error {
 		}
 	}
 
+	a.metrics.LinksCreated.Inc()
 	return c.Status(fiber.StatusCreated).JSON(shortenResponse{
 		URL:              target,
 		ShortURL:         a.shortURL(c, code),
@@ -167,6 +174,7 @@ func (a *App) resolve(c *fiber.Ctx) error {
 	if err != nil {
 		return errJSON(c, fiber.StatusServiceUnavailable, "storage unavailable")
 	}
+	a.metrics.Redirects.Inc()
 	return c.Redirect(target, fiber.StatusFound)
 }
 
