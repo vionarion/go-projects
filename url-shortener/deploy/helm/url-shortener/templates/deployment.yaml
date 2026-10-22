@@ -22,6 +22,11 @@ spec:
     spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
       containers:
         - name: url-shortener
           image: {{ include "url-shortener.image" . }}
@@ -57,9 +62,14 @@ spec:
               value: {{ .Values.config.codeLength | quote }}
             - name: TRUST_PROXY
               value: {{ .Values.config.trustProxy | quote }}
+          lifecycle:
+            # Keep serving while the endpoint removal reaches every kube-proxy, then stop.
+            preStop:
+              sleep:
+                seconds: {{ .Values.preStopSleepSeconds }}
           livenessProbe:
             httpGet:
-              path: /health
+              path: /livez
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
