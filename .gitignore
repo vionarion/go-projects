@@ -19,3 +19,8 @@
 
 # Go workspace file
 go.work
+
+# Local settings with secrets
+.env
+.env.*
+!.env.example
