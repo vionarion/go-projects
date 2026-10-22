@@ -68,7 +68,7 @@ jobs:
           cosign attest --yes --type spdxjson --predicate sbom.spdx.json "$IMAGE"
 
       - name: Trivy scan (SARIF)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/url-shortener@${{ steps.build.outputs.digest }}
           format: sarif
@@ -80,7 +80,7 @@ jobs:
           sarif_file: trivy-results.sarif
 
       - name: Fail on CRITICAL vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/url-shortener@${{ steps.build.outputs.digest }}
           format: table

@@ -68,7 +68,7 @@ func main() {
 	if addr == "" {
 		addr = "localhost:8080"
 	}
-	log.Printf("listening on %s", addr)
+	log.Printf("listening on %s", addr) // #nosec G706 -- addr comes from the operator's own environment
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           newMux(&server{}),
