@@ -1,0 +1,68 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/vionarion/url-shortener
+  tag: ""        # defaults to Chart.appVersion
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: ""
+  tls: []
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 75
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  labels: {}
+
+# Settings mapped to the app's environment variables (see url-shortener/.env.example).
+config:
+  domain: ""
+  apiQuota: 10
+  apiQuotaWindowMin: 30
+  defaultExpiryHours: 24
+  maxExpiryHours: 720
+  codeLength: 7
+  trustProxy: false
+
+redis:
+  # Redis runs outside this chart; only the connection details are configured here.
+  addr: "redis:6379"
+  existingSecret: ""     # Secret name holding the Redis password
+  existingSecretKey: "redis-password"
