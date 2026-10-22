@@ -50,6 +50,32 @@ Errors are JSON: `{"error": "..."}` with `400`, `404`, `409`, `429` or `503`.
 - Links to the service's own `DOMAIN` are rejected to avoid redirect loops.
 - Behind a reverse proxy set `TRUST_PROXY=true` so the limit uses the real client IP.
 
+## Metrics
+
+`GET /metrics` exposes Prometheus metrics: `http_requests_total`, `http_request_duration_seconds`,
+`shortener_links_created_total`, `shortener_redirects_total`, `shortener_rate_limited_total`.
+A Grafana dashboard is at `deploy/grafana/dashboard.json` and alert rules (high error rate, high
+latency, target down) at `deploy/prometheus/rules.yml` — check them with
+`promtool check rules deploy/prometheus/rules.yml`.
+
+## Deploy with Helm
+
+```bash
+helm install url-shortener deploy/helm/url-shortener \
+  --set redis.addr=redis:6379 \
+  --set redis.existingSecret=redis-secret \
+  --set redis.existingSecretKey=redis-password
+```
+
+Redis itself is external to the chart. See `deploy/helm/url-shortener/values.yaml` for the rest of
+the settings (ingress, autoscaling, ServiceMonitor).
+
+## Release
+
+Pushing a tag `url-shortener/vX.Y.Z` builds and pushes a multi-arch (amd64/arm64) image to
+`ghcr.io/vionarion/url-shortener`, then scans it with Trivy (SARIF uploaded to code scanning,
+fails on CRITICAL findings).
+
 ## Development
 
 ```bash

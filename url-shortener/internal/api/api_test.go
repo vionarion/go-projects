@@ -135,6 +135,33 @@ func TestRateLimit(t *testing.T) {
 	}
 }
 
+func TestMetrics(t *testing.T) {
+	app, _ := newTestApp(t, 10)
+
+	resp, out := shorten(t, app, `{"url":"https://example.org"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("shorten: status %d, body %v", resp.StatusCode, out)
+	}
+	code := out["short_url"].(string)
+	code = code[strings.LastIndex(code, "/")+1:]
+	if r, err := app.Test(httptest.NewRequest(http.MethodGet, "/"+code, nil)); err != nil || r.StatusCode != http.StatusFound {
+		t.Fatalf("redirect: status %v, err %v", r, err)
+	}
+
+	after, _ := app.Test(httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	afterBody, _ := io.ReadAll(after.Body)
+	body := string(afterBody)
+	if !strings.Contains(body, "shortener_links_created_total 1") {
+		t.Errorf("links created counter did not increase: %s", body)
+	}
+	if !strings.Contains(body, "shortener_redirects_total 1") {
+		t.Errorf("redirects counter did not increase: %s", body)
+	}
+	if !strings.Contains(body, `route="/:code"`) {
+		t.Errorf("requests should be labeled by route template, not raw path: %s", body)
+	}
+}
+
 func TestHealth(t *testing.T) {
 	app, mr := newTestApp(t, 10)
 

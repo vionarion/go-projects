@@ -1,0 +1,36 @@
+groups:
+  - name: url-shortener
+    rules:
+      - alert: UrlShortenerHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="url-shortener",status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="url-shortener"}[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "url-shortener 5xx rate above 5%"
+          description: "More than 5% of requests to url-shortener returned a 5xx status over the last 5 minutes."
+
+      - alert: UrlShortenerHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="url-shortener"}[5m])) by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "url-shortener p95 latency above 500ms"
+          description: "95th percentile request latency has been above 500ms for 5 minutes."
+
+      - alert: UrlShortenerTargetDown
+        expr: up{job="url-shortener"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "url-shortener target down"
+          description: "Prometheus has not been able to scrape url-shortener for 2 minutes."
