@@ -1,27 +1,22 @@
-# myPet
+# go-projects
 
-Small Go projects I use to practice the language and its standard library.
+Go projects: from a standard-library HTTP API to a containerized service with Redis.
+Every project has tests; CI runs `gofmt`, `go vet`, tests with the race detector,
+a Docker image build and a secret scan (gitleaks) on every push.
 
-| Project | What it is | Status |
-|---|---|---|
-| [simpleWeb](simpleWeb/) | HTTP API on `net/http` only: `GET/POST /people` (JSON), `/health` endpoint | works |
-| [goWordGame](goWordGame/) | CLI helper for a word game: random letter + 4 random categories | works |
-| [urlShortener](urlShortener/) | URL shortener on Fiber with Redis storage, rate limiting and link expiry, settings from environment variables | in progress |
-| [simpleUrlShortener](simpleUrlShortener/) | First sketch of the shortener idea | sketch |
+| Project | What it is |
+|---|---|
+| [url-shortener](url-shortener/) | Short links service: Fiber + Redis, custom codes, link expiry, per-IP rate limit, healthcheck, distroless image, Docker Compose |
+| [simple-web](simple-web/) | JSON API on `net/http` only (Go 1.22+ method routing), concurrency-safe in-memory storage |
+| [word-game](word-game/) | CLI helper for a word party game: random letter + 4 distinct categories |
 
-## Run
-
-```bash
-cd simpleWeb && go run .
-curl -X POST localhost:8080/people -d '{"Name":"Ann","Age":30}'
-curl localhost:8080/people
-```
+## Quick start
 
 ```bash
-cd goWordGame && go run .
+cd url-shortener && cp .env.example .env && docker compose up -d --build
+cd simple-web && go run .
+cd word-game && go run .
 ```
 
-## Configuration
-
-`urlShortener/api` reads its settings from a `.env` file. Copy `.env.example` to `.env` and fill in the values;
-`.env` is ignored by git, so passwords never get into the repository.
+Each project is a separate Go module, so it can be built and tested on its own.
+Secrets live only in local `.env` files, which are ignored by git.
