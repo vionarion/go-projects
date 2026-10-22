@@ -6,7 +6,8 @@ Short links service in Go: [Fiber](https://gofiber.io) + Redis, packed into a ~1
 - `GET /<code>` redirects to the original URL
 - links expire (24 h by default, capped by `MAX_EXPIRY_HOURS`)
 - rate limit per client IP: `API_QUOTA` requests per `API_QUOTA_WINDOW_MIN`, `429` + `Retry-After` when exceeded
-- `GET /health` checks the Redis connection (for Docker/Traefik healthchecks)
+- `GET /health` checks the Redis connection (readiness, Docker/Traefik healthchecks);
+  `GET /livez` only reports that the process is alive (liveness)
 - graceful shutdown on SIGTERM; settings only from environment variables
 
 ```mermaid
@@ -67,8 +68,9 @@ helm install url-shortener deploy/helm/url-shortener \
   --set redis.existingSecretKey=redis-password
 ```
 
-Redis itself is external to the chart. See `deploy/helm/url-shortener/values.yaml` for the rest of
-the settings (ingress, autoscaling, ServiceMonitor).
+Redis itself is external to the chart; `deploy/redis/redis.yaml` is a single-instance StatefulSet
+with AOF on a persistent volume. See `deploy/helm/url-shortener/values.yaml` for the rest of
+the settings (ingress, autoscaling, spread across nodes, ServiceMonitor).
 
 ## Load test
 
@@ -91,6 +93,39 @@ Takeaways:
   period. Raising the limit to 1 CPU doubled throughput and cut p99 from 87 ms to 9 ms, so the chart
   default is now `limits.cpu: 1`.
 - 555k links took 73 MB of Redis memory (~130 bytes per link); each app pod stayed under 12 MiB.
+
+## Failure test
+
+Same cluster, steady load of ~2 000 req/s (`GET /:code`, 100 connections, 2 s client timeout),
+6 replicas. Each failure was injected in the middle of the run; the node failure is a network
+partition of one worker (nftables drop to/from the other nodes, reverted after 150 s).
+
+| Failure | Before | After |
+|---|---|---|
+| Rolling update (`rollout restart`) | 22 `connection refused` of 180k | **0 errors** |
+| Redis pod restarted | every link lost: 100% of redirects → `404` | links kept, 126 timeouts during the ~2 s restart |
+| Redis down for 60 s | 17 app restarts, 2 pods in `CrashLoopBackOff`, back ~15 s after Redis, links lost | **0 restarts**, back within 2 s after Redis, links kept |
+| One of 3 nodes cut off | 28 timeouts of ~400k (2 of 6 pods on the node) | 42 timeouts of ~400k; with the old placement (3+3+0 pods) 56 |
+
+What was wrong and what changed:
+
+- **Rolling update.** The pod got SIGTERM while kube-proxy on other nodes still sent it new
+  connections. Fix: `preStop: sleep 5` (native sleep action, works in a distroless image) — the pod
+  keeps serving until the endpoint removal has propagated.
+- **Liveness tied to Redis.** The liveness probe used `/health`, which pings Redis, so a Redis outage
+  made Kubernetes restart every app pod, and the app exited at start-up when Redis was unreachable →
+  `CrashLoopBackOff` with growing back-off that outlived the outage. Fix: liveness → `/livez`
+  (process only), readiness stays on `/health`; the app no longer exits when Redis is down at start.
+- **Redis without a volume.** AOF was enabled but written to the container filesystem, so a new pod
+  started empty. Fix: StatefulSet with a PVC (`deploy/redis/redis.yaml`).
+- **Uneven placement.** `ScheduleAnyway` spread still produced 3+3+0 pods, so one node held half the
+  capacity. Fix: `DoNotSchedule` with `nodeTaintsPolicy: Honor` (a NotReady node does not block
+  scheduling) and `matchLabelKeys: [pod-template-hash]` (old pods of a rolling update are not counted;
+  without it the result was 2+1+3). Now 2+2+2. Spread is only applied at scheduling, so an HPA
+  scale-down can still leave it uneven until the next rollout.
+- **Node failure** is bounded by detection: the node turned `NotReady` after ~40 s and only then were
+  its pods removed from the Service. Requests that hit them in that window time out; this needs
+  retries at the client or ingress level, not an app change.
 
 ## Release
 
