@@ -95,8 +95,38 @@ Takeaways:
 ## Release
 
 Pushing a tag `url-shortener/vX.Y.Z` builds and pushes a multi-arch (amd64/arm64) image to
-`ghcr.io/vionarion/url-shortener`, then scans it with Trivy (SARIF uploaded to code scanning,
-fails on CRITICAL findings).
+`ghcr.io/vionarion/url-shortener`, then:
+
+1. generates an SBOM (SPDX) with Syft;
+2. signs the image by digest with cosign keyless signing (GitHub Actions OIDC identity, recorded in
+   the Sigstore transparency log) and attaches the SBOM as a signed attestation;
+3. scans it with Trivy (SARIF uploaded to code scanning, fails on CRITICAL findings).
+
+Verify a release by hand:
+
+```bash
+cosign verify ghcr.io/vionarion/url-shortener:1.0.0 \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/vionarion/go-projects/.github/workflows/release.yml@refs/tags/url-shortener/v'
+```
+
+## Supply chain security
+
+| Stage | Check | Fails the build on |
+|---|---|---|
+| Every push | `govulncheck` | known vulnerabilities in code paths the app actually calls |
+| Every push | `gosec` | insecure code patterns (missing HTTP timeouts, weak randomness, etc.) |
+| Every push | `trivy config` | HIGH/CRITICAL misconfigurations in the Dockerfile and Helm chart |
+| Every push | `trivy image` | fixable HIGH/CRITICAL vulnerabilities in the built image |
+| Every push | `gitleaks` | committed secrets |
+| Release | Syft + cosign | — produces the SBOM and the signature |
+| Cluster | Kyverno | pods with an unsigned image or one signed by anyone else |
+
+`deploy/policy/verify-image-signature.yaml` is a Kyverno `ImageValidatingPolicy`: the cluster only
+admits `ghcr.io/vionarion/url-shortener` images signed by this repository's release workflow from a
+`url-shortener/v*` tag. Tested on k3s with Kyverno 1.19: a pod with an unsigned image is denied at
+admission, while other images are not affected. If the GHCR package is private, add registry
+credentials to the policy (`spec.credentials`).
 
 ## Development
 

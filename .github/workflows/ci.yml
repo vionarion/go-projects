@@ -24,6 +24,37 @@ jobs:
       - run: go vet ./...
       - run: go test -race -cover ./...
 
+  security:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [url-shortener, simple-web, word-game]
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.project }}/go.mod
+          cache-dependency-path: ${{ matrix.project }}/go.sum
+      - name: govulncheck (known vulnerabilities in reachable code)
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - name: gosec (static security analysis)
+        run: go run github.com/securego/gosec/v2/cmd/gosec@latest -quiet ./...
+
+  misconfig:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy config scan (Dockerfile, Helm chart)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: url-shortener
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
   docker:
     runs-on: ubuntu-latest
     needs: test
@@ -34,6 +65,13 @@ jobs:
         run: cp .env.example .env && docker compose config -q
       - name: Build image
         run: docker build -t url-shortener url-shortener
+      - name: Trivy image scan (fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: url-shortener
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
 
   helm:
     runs-on: ubuntu-latest
