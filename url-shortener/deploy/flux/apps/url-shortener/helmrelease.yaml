@@ -32,7 +32,7 @@ spec:
     autoscaling:
       minReplicas: 3
     image:
-      tag: 1.1.0
+      tag: 9.9.9-broken
     config:
       apiQuota: 1000000
       domain: http://s.lab
