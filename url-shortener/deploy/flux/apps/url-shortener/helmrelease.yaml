@@ -8,6 +8,7 @@ metadata:
 spec:
   releaseName: urls
   interval: 10m
+  timeout: 2m
   chart:
     spec:
       chart: ./url-shortener/deploy/helm/url-shortener
@@ -28,7 +29,7 @@ spec:
   driftDetection:
     mode: enabled
   values:
-    replicaCount: 2
+    replicaCount: 3
     image:
       tag: 1.1.0
     config:
