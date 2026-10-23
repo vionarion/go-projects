@@ -1,0 +1,14 @@
+# Where Flux pulls desired state from. Public repo, so no credentials are needed.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: go-projects
+  namespace: flux-system
+spec:
+  url: https://github.com/vionarion/go-projects
+  ref:
+    branch: main
+  interval: 1m
+  ignore: |
+    /*
+    !/url-shortener/deploy/
