@@ -29,7 +29,8 @@ spec:
   driftDetection:
     mode: enabled
   values:
-    replicaCount: 3
+    autoscaling:
+      minReplicas: 3
     image:
       tag: 1.1.0
     config:
