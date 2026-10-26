@@ -2,6 +2,8 @@ package main
 
 import (
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -49,6 +51,27 @@ func TestRunScanFindsOpenPort(t *testing.T) {
 	}
 	if len(open) != 1 || open[0] != port {
 		t.Errorf("expected [%d], got %v", port, open)
+	}
+}
+
+func TestTopNLargestFiles(t *testing.T) {
+	dir := t.TempDir()
+	sizes := map[string]int{"small.txt": 10, "medium.txt": 100, "big.txt": 1000}
+	for name, size := range sizes {
+		if err := os.WriteFile(filepath.Join(dir, name), make([]byte, size), 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+	}
+
+	files, err := topNLargestFiles(dir, 2)
+	if err != nil {
+		t.Fatalf("topNLargestFiles: %v", err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("expected 2 files, got %d", len(files))
+	}
+	if filepath.Base(files[0].path) != "big.txt" || filepath.Base(files[1].path) != "medium.txt" {
+		t.Errorf("expected [big.txt medium.txt] in order, got %v", files)
 	}
 }
 

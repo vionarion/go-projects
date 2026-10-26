@@ -1,5 +1,5 @@
-// netkit is a small CLI with two tools a DevOps engineer reaches for often:
-// a system-info dump and a concurrent TCP port scanner.
+// netkit is a small CLI with tools a DevOps engineer reaches for often:
+// a system-info dump, a concurrent TCP port scanner, and a disk-hog finder.
 package main
 
 import (
@@ -50,6 +50,17 @@ func main() {
 			fmt.Printf("%d/tcp open\n", p)
 		}
 
+	case "bigfiles":
+		bigfilesCmd := flag.NewFlagSet("bigfiles", flag.ExitOnError)
+		root := bigfilesCmd.String("root", ".", "Directory to scan")
+		top := bigfilesCmd.Int("top", 10, "Number of largest files to show")
+		bigfilesCmd.Parse(os.Args[2:])
+
+		if err := runBigfiles(*root, *top); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
 		usage()
@@ -58,9 +69,11 @@ func main() {
 }
 
 func usage() {
-	fmt.Println("Usage: netkit <sysinfo|scan> [options]")
+	fmt.Println("Usage: netkit <sysinfo|scan|bigfiles> [options]")
 	fmt.Println("\nSystem info:")
 	fmt.Println("  netkit sysinfo")
 	fmt.Println("\nPort scan:")
 	fmt.Println("  netkit scan -target 127.0.0.1 -start 1 -end 1024 [-workers 200] [-timeout 500]")
+	fmt.Println("\nLargest files:")
+	fmt.Println("  netkit bigfiles -root /var -top 10")
 }
