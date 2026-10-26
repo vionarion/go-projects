@@ -1,3 +1,5 @@
+![go-projects](assets/banner.svg)
+
 # go-projects
 
 ![ci](https://github.com/vionarion/go-projects/actions/workflows/ci.yml/badge.svg)
