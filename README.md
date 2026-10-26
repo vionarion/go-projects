@@ -13,6 +13,7 @@ Vault Secrets Operator and rotates without downtime.
 | [url-shortener](url-shortener/) | Short links service: Fiber + Redis, custom codes, link expiry, per-IP rate limit, healthcheck, distroless image, Docker Compose |
 | [simple-web](simple-web/) | JSON API on `net/http` only (Go 1.22+ method routing), concurrency-safe in-memory storage |
 | [word-game](word-game/) | CLI helper for a word party game: random letter + 4 distinct categories |
+| [netkit](netkit/) | CLI with sysinfo and a concurrent TCP port scanner, standard library only |
 
 ## Quick start
 
@@ -20,6 +21,7 @@ Vault Secrets Operator and rotates without downtime.
 cd url-shortener && cp .env.example .env && docker compose up -d --build
 cd simple-web && go run .
 cd word-game && go run .
+cd netkit && go run . sysinfo
 ```
 
 Each project is a separate Go module, so it can be built and tested on its own.
