@@ -1,5 +1,8 @@
 # go-projects
 
+![ci](https://github.com/vionarion/go-projects/actions/workflows/ci.yml/badge.svg)
+![license](https://img.shields.io/github/license/vionarion/go-projects)
+
 Go projects: from a standard-library HTTP API to a containerized service with Redis.
 Every project has tests; CI runs `gofmt`, `go vet`, tests with the race detector,
 security checks (govulncheck, gosec, Trivy for the image and the Helm chart, gitleaks)
