@@ -1,6 +1,6 @@
 module github.com/vionarion/go-projects/url-shortener
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/alicebob/miniredis/v2 v2.40.0
@@ -11,7 +11,7 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/andybalholm/brotli v1.2.7 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
